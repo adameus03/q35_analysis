@@ -145,17 +145,17 @@ Based on section 13.1.35 of the ICH9 datasheet and the fact that we are effectiv
   - Enable = 1 
 
 So now, the offsets in the chipset configuration registers memory map (as specified in ICH9 datasheet section 10.1) are prepared to be treated as relative to physical address 0xd0000 (we get a clue about this from the upcoming `movw $0x4,0x3410(%si)` instruction (see below) and seeking the 3410 offset in the ICH9 datasheet).  
-What happens next? We'll analyse the further instructions (with the help of the 10.1 chipset configuration registers documentation in the ICH9 datasheet).
+What happens next? We'll analyse the further instructions as much as we can with the help of the 10.1 chipset configuration registers documentation in the ICH9 datasheet).
 
 ```
-1ffad1:	8c d9                	movw   %ds,%cx
-1ffad3:	8b fa                	movw.s %dx,%di
+1ffad1:	8c d9                	movw   %ds,%cx # Save ds for restoring later
+1ffad3:	8b fa                	movw.s %dx,%di # Save dx for restoring later
 1ffad5:	66 b8 f0 f8 00 80    	movl   $0x8000f8f0,%eax
 1ffadb:	ba f8 0c             	movw   $0xcf8,%dx
 1ffade: 66 ef                   outl   %eax,(%dx) # enables the configuration space for D31:F0 (function 0) using the north bridge. Precisely we are targeting the RCBA register of the north bridge
 1ffae0: 83 c2 04                addw   $0x4,%dx
 1ffae3: 66 ed                   inl    (%dx),%eax # obtain a configuration data window for the RCBA register
-1ffae5: 66 8b d8                movl.s %eax,%ebx # save the CDW for later
+1ffae5: 66 8b d8                movl.s %eax,%ebx # save the CDW to enable restoring it later
 1ffae8:	66 b8 01 00 0d 00    	movl   $0xd0001,%eax
 1ffaee:	66 ef                	outl   %eax,(%dx) # Enable RCBA base address = 0xd0000
 1ffaf0:	be 00 00             	movw   $0x0,%si 
@@ -165,20 +165,23 @@ What happens next? We'll analyse the further instructions (with the help of the 
 1ffafd:	8a 84 11 34          	movb   0x3411(%si),%al
 1ffb01:	24 0c                	andb   $0xc,%al
 1ffb03:	3c 08                	cmpb   $0x8,%al # check if Boot BIOS Straps (BBS) bits of the  GCS chipset configuration register are 10 - checks if the destination of accesses to the BIOS memory range is PCI (not SPI and not LPC). See ICH9 datasheet section 10.1.75  
-1ffb05:	75 12                	jne    0x1ffb19
+1ffb05:	75 12                	jne    0x1ffb19 # If it's not PCI, we skip the below PCI-specific code that is for disabling legacy ranges decoding (as you can see below).
 1ffb07:	66 b8 d8 f8 00 80    	movl   $0x8000f8d8,%eax
 1ffb0d:	ba f8 0c             	movw   $0xcf8,%dx
-1ffb10:	66 ef                	outl   %eax,(%dx)
+1ffb10:	66 ef                	outl   %eax,(%dx) # enable configuration space for D31:D8 function 0 using the north bridge. We are targetting the Firmware Hub Decode Enable Register (FWH_DEC_EN1)
 1ffb12:	83 c2 04             	addw   $0x4,%dx
 1ffb15:	ec                   	inb    (%dx),%al
 1ffb16:	24 3f                	andb   $0x3f,%al
-1ffb18:	ee                   	outb   %al,(%dx)
+1ffb18:	ee                   	outb   %al,(%dx) # Disable decoding legacy 64KB ranges at F0000h-FFFFFh and E0000h-EFFFFh by setting FWH_Legacy_F_EN = 0 and FWH_Legacy_E_EN = 0
 1ffb19:	66 b8 f0 f8 00 80    	movl   $0x8000f8f0,%eax
 1ffb1f:	ba f8 0c             	movw   $0xcf8,%dx
-1ffb22:	66 ef                	outl   %eax,(%dx)
+1ffb22:	66 ef                	outl   %eax,(%dx) 
 1ffb24:	83 c2 04             	addw   $0x4,%dx
 1ffb27:	66 8b c3             	movl.s %ebx,%eax
-1ffb2a:	66 ef                	outl   %eax,(%dx)
-1ffb2c:	8b d7                	movw.s %di,%dx
-1ffb2e:	8e d9                	movw   %cx,%ds
+1ffb2a:	66 ef                	outl   %eax,(%dx) # Reset the Root Complex Base Address Register to the default value of 0x00000000 (disables back the chipset configuration registers memory mapping)
+1ffb2c:	8b d7                	movw.s %di,%dx # Restore back dx
+1ffb2e:	8e d9                	movw   %cx,%ds # Restore back ds
+1ffb30:	ea 5b e0 00 f0       	ljmpw  $0xf000,$0xe05b # Long jump, who knows where?
 ```
+
+So we've got to a clear milestone, the `ljmpw  $0xf000,$0xe05b` long jump instruction which jumps to the physical address 0xfe05b. What will we find there? 
