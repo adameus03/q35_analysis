@@ -35,7 +35,7 @@ Thanks for your help!
 Reading flash... done.
 ```
 
-Read the reset vector (at physical address 0x1FFFF0, 16th byte counting back from the last address of the physical addressing space):
+Read the reset vector (at bios dump offset 0x1FFFF0, 16th byte counting back from the dump end):
 ```
 mundus@localhost:~/flashrom$ objdump -D -b binary -m i386 -M i8086,suffix --start-address=0x1FFFF0 test2
  
