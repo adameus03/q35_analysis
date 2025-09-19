@@ -144,6 +144,41 @@ Based on section 13.1.35 of the ICH9 datasheet and the fact that we are effectiv
   - Base Address = 0xd0000 (the 31:14 bits (18 bits) of 0x000d0001 are left-padded with zeroes to get a 32-bit value left shifted by 14)
   - Enable = 1 
 
-So now, if I guess correctly the offsets in the LPC interface PCI register address map as specified in ICH9 datasheet section 13.1 are prepared to be treated as relative to 0xd0000 (we will need to confirm this and elaborate on this).  
-What happens next?
+So now, the offsets in the chipset configuration registers memory map (as specified in ICH9 datasheet section 10.1) are prepared to be treated as relative to physical address 0xd0000 (we get a clue about this from the upcoming `movw $0x4,0x3410(%si)` instruction (see below) and seeking the 3410 offset in the ICH9 datasheet).  
+What happens next? We'll analyse the further instructions (with the help of the 10.1 chipset configuration registers documentation in the ICH9 datasheet).
 
+```
+1ffad1:	8c d9                	movw   %ds,%cx
+1ffad3:	8b fa                	movw.s %dx,%di
+1ffad5:	66 b8 f0 f8 00 80    	movl   $0x8000f8f0,%eax
+1ffadb:	ba f8 0c             	movw   $0xcf8,%dx
+1ffade: 66 ef                   outl   %eax,(%dx) # enables the configuration space for D31:F0 (function 0) using the north bridge. Precisely we are targeting the RCBA register of the north bridge
+1ffae0: 83 c2 04                addw   $0x4,%dx
+1ffae3: 66 ed                   inl    (%dx),%eax # obtain a configuration data window for the RCBA register
+1ffae5: 66 8b d8                movl.s %eax,%ebx # save the CDW for later
+1ffae8:	66 b8 01 00 0d 00    	movl   $0xd0001,%eax
+1ffaee:	66 ef                	outl   %eax,(%dx) # Enable RCBA base address = 0xd0000
+1ffaf0:	be 00 00             	movw   $0x0,%si 
+1ffaf3:	b8 00 d0             	movw   $0xd000,%ax
+1ffaf6:	8e d8                	movw   %ax,%ds
+1ffaf8:	80 8c 10 34 04       	orb    $0x4,0x3410(%si) # Set Reserved Page Route (RPR) bit of the General Control and Status Register (GCS) - Configure the reservered page registers to have their writes forwarded to PCI, be shadowed within the ICH, and the reads will be returned from that internal shadow. (see ICH9 datasheet section 10.1.75)
+1ffafd:	8a 84 11 34          	movb   0x3411(%si),%al
+1ffb01:	24 0c                	andb   $0xc,%al
+1ffb03:	3c 08                	cmpb   $0x8,%al # check if Boot BIOS Straps (BBS) bits of the  GCS chipset configuration register are 10 - checks if the destination of accesses to the BIOS memory range is PCI (not SPI and not LPC). See ICH9 datasheet section 10.1.75  
+1ffb05:	75 12                	jne    0x1ffb19
+1ffb07:	66 b8 d8 f8 00 80    	movl   $0x8000f8d8,%eax
+1ffb0d:	ba f8 0c             	movw   $0xcf8,%dx
+1ffb10:	66 ef                	outl   %eax,(%dx)
+1ffb12:	83 c2 04             	addw   $0x4,%dx
+1ffb15:	ec                   	inb    (%dx),%al
+1ffb16:	24 3f                	andb   $0x3f,%al
+1ffb18:	ee                   	outb   %al,(%dx)
+1ffb19:	66 b8 f0 f8 00 80    	movl   $0x8000f8f0,%eax
+1ffb1f:	ba f8 0c             	movw   $0xcf8,%dx
+1ffb22:	66 ef                	outl   %eax,(%dx)
+1ffb24:	83 c2 04             	addw   $0x4,%dx
+1ffb27:	66 8b c3             	movl.s %ebx,%eax
+1ffb2a:	66 ef                	outl   %eax,(%dx)
+1ffb2c:	8b d7                	movw.s %di,%dx
+1ffb2e:	8e d9                	movw   %cx,%ds
+```
