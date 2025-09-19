@@ -101,7 +101,7 @@ Disassembly of section .data:
   1ffaf6:	8e d8                	movw   %ax,%ds
 ```
 
-As per https://www.intel.com/Assets/PDF/datasheet/316966.pdf section 4.5, 0xcf8 coresponds to the Q35 north bridge I/O mapped register CONFIG_ADDRESS.   
+As per https://www.intel.com/Assets/PDF/datasheet/316966.pdf section 4.5, 0xcf8 corresponds to the Q35 north bridge I/O mapped register CONFIG_ADDRESS.   
 `outl %eax, (dx)` writes 0x8000f8f0 into that register.  
 We can also see the `addw $0x4, %dx` and `inl (%dx), %eax` instructions which make us interested in 0xcfc too. The same 4.5 section gives information that this corresponds to reading the CONFIG_DATA register.  
 The CONFIG_ADDRESS and CONFIG_DATA registers are used to implement configuration space access mechanism (section 3.10). Let's find out what is being configured specifically.  
@@ -117,6 +117,33 @@ Based on sections 4.5.1 and 4.5.2, we can see that the program obtains the Confi
   - The whole 31:0 value is the CDW window.
 
 Reading from CONFIG_DATA involves the (G)MCH north bridge producing a configuration transaction using the values set in CONFIG_ADDRESS, because the CFGE bit is set to 1 by `movl $0x8000f8f0,%eax` along with other mentioned CONFIG_ADDRESS parameters. Let's find out what particular device and register is involved based on this information.  
-Based on section 4.5.1 we know, there's a DMI Type 0 configuration cycle generated.
+Based on section 4.5.1 we know, there's a DMI Type 0 configuration cycle generated because Bus Number = 0 and Device Number >= 2.    
+As DMI is constitutes an interface between northbridge and southbridge, we shall check [the Intel's ICH9 datasheet](https://www.intel.com/content/dam/doc/datasheet/io-controller-hub-9-datasheet.pdf), as that's what the ga-q35m-s2 chipset uses. 
+Section 13.1 of that datasheet reveals the target register D31:F0 is the Root Complex Base Address (RCBA) register - a register in the ICH9 chip.  
 
+Here's what we know so far:
+```
+1ffad1:   8c d9                   movw   %ds,%cx
+1ffad3:   8b fa                   movw.s %dx,%di
+1ffad5:   66 b8 f0 f8 00 80       movl   $0x8000f8f0,%eax
+1ffadb:   ba f8 0c                movw   $0xcf8,%dx
+1ffade:   66 ef                   outl   %eax,(%dx) # enables the configuration space for D31:F0 (function 0) using the north bridge. Precisely we are targeting the RCBA register of the north bridge
+1ffae0:   83 c2 04                addw   $0x4,%dx
+1ffae3:   66 ed                   inl    (%dx),%eax # obtain a configuration data window for the RCBA register 
+1ffae5:   66 8b d8                movl.s %eax,%ebx # save the CDW for later
+1ffae8:   66 b8 01 00 0d 00       movl   $0xd0001,%eax
+1ffaee:   66 ef                   outl   %eax,(%dx)                                                   
+1ffaf0:   be 00 00                movw   $0x0,%si                                                     
+1ffaf3:   b8 00 d0                movw   $0xd000,%ax                                              
+1ffaf6:   8e d8                   movw   %ax,%ds
+```
+
+Now, what does the next `outl %eax,(%dx)` do?  
+Based on section 13.1.35 of the ICH9 datasheet and the fact that we are effectively sending 0xd0001 to the south bridge, the following action is done:
+- Write RCBA
+  - Base Address = 0xd0000 (the 31:14 bits (18 bits) of 0x000d0001 are left-padded with zeroes to get a 32-bit value left shifted by 14)
+  - Enable = 1 
+
+So now, if I guess correctly the offsets in the LPC interface PCI register address map as specified in ICH9 datasheet section 13.1 are prepared to be treated as relative to 0xd0000 (we will need to confirm this and elaborate on this).  
+What happens next?
 
