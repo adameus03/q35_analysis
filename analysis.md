@@ -100,3 +100,7 @@ Disassembly of section .data:
   1ffaf3:	b8 00 d0             	movw   $0xd000,%ax
   1ffaf6:	8e d8                	movw   %ax,%ds
 ```
+
+As per https://www.intel.com/Assets/PDF/datasheet/316966.pdf section 4.5, 0xcf8 coresponds to the Q35 north bridge I/O mapped register CONFIG_ADDRESS. \ 
+`outl %eax, (dx)` writes 0x8000f8f0 into that register. \
+We can also see the `addw $0x4, %dx` and `inl (%dx), %eax` instructions which make us interested in 0xcfc too. The same 4.5 section gives information that this corresponds to reading the CONFIG_DATA register.
