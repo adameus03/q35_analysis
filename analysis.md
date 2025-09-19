@@ -103,4 +103,20 @@ Disassembly of section .data:
 
 As per https://www.intel.com/Assets/PDF/datasheet/316966.pdf section 4.5, 0xcf8 coresponds to the Q35 north bridge I/O mapped register CONFIG_ADDRESS.   
 `outl %eax, (dx)` writes 0x8000f8f0 into that register.  
-We can also see the `addw $0x4, %dx` and `inl (%dx), %eax` instructions which make us interested in 0xcfc too. The same 4.5 section gives information that this corresponds to reading the CONFIG_DATA register.
+We can also see the `addw $0x4, %dx` and `inl (%dx), %eax` instructions which make us interested in 0xcfc too. The same 4.5 section gives information that this corresponds to reading the CONFIG_DATA register.  
+The CONFIG_ADDRESS and CONFIG_DATA registers are used to implement configuration space access mechanism (section 3.10). Let's find out what is being configured specifically.  
+
+Based on sections 4.5.1 and 4.5.2, we can see that the program obtains the Configuration Data Window (CDW) by doing the following
+- Write CONFIG_ADDRESS
+  - Configuration Enable (CFGE) = 1
+  - Bus Number = 0
+  - Device Number = 31
+  - Function Number = 0
+  - Register Number = 0xf0 
+- Read CONFIG_DATA
+  - The whole 31:0 value is the CDW window.
+
+Reading from CONFIG_DATA involves the (G)MCH north bridge producing a configuration transaction using the values set in CONFIG_ADDRESS, because the CFGE bit is set to 1 by `movl $0x8000f8f0,%eax` along with other mentioned CONFIG_ADDRESS parameters. Let's find out what particular device and register is involved based on this information.  
+Based on section 4.5.1 we know, there's a DMI Type 0 configuration cycle generated.
+
+
