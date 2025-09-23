@@ -1,13 +1,13 @@
-Use `sudo flashrom -V -r test2 -c MX25L1605 -p ch341a_spi` to dump the bios2 chip of the ga-q35m-s2 board.
+Use `sudo flashrom -V -r bios_dump -c MX25L1605 -p ch341a_spi` to dump the bios2 chip of the ga-q35m-s2 board.
 
 ```
-mundus@pc6:~/base/flashrom$ sudo flashrom -V -r test2 -c MX25L1605 -p ch341a_spi
+user@localhost:~/base/flashrom$ sudo flashrom -V -r bios_dump -c MX25L1605 -p ch341a_spi
 flashrom unknown on Linux 6.1.0-37-amd64 (x86_64)
 flashrom is free software, get the source code at https://flashrom.org
 
 Using clock_gettime for delay loops (clk_id: 1, resolution: 1ns).
 flashrom was built with GCC 12.2.0, little endian
-Command line (7 args): flashrom -V -r test2 -c MX25L1605 -p ch341a_spi
+Command line (7 args): flashrom -V -r bios_dump -c MX25L1605 -p ch341a_spi
 Initializing ch341a_spi programmer
 Device revision is 3.0.4
 The following protocols are supported: SPI.
@@ -37,9 +37,9 @@ Reading flash... done.
 
 Read the reset vector (at bios dump offset 0x1FFFF0, 16th byte counting back from the dump end):
 ```
-mundus@localhost:~/flashrom$ objdump -D -b binary -m i386 -M i8086,suffix --start-address=0x1FFFF0 test2
+user@localhost:~/flashrom$ objdump -D -b binary -m i386 -M i8086,suffix --start-address=0x1FFFF0 bios_dump
  
-test2:     file format binary
+bios_dump:     file format binary
 
 
 Disassembly of section .data:
@@ -57,7 +57,7 @@ Disassembly of section .data:
 
 Calculate the next instruction address relative to the bios dump file beginning:
 ```
-mundus@localhost:~/flashrom$ cat calc.c 
+user@localhost:~/flashrom$ cat calc.c 
 #include <stdint.h>
 #include <stdio.h>
 
@@ -70,17 +70,17 @@ int main() {
   printf("Next instruction address: 0x%x\n", next_instruction_addr);
   return 0;
 }
-mundus@localhost:~/flashrom$ gcc calc.c -o calc
-mundus@localhost:~/flashrom$ ./calc
+user@localhost:~/flashrom$ gcc calc.c -o calc
+user@localhost:~/flashrom$ ./calc
 Reset vector address: 0x1ffff0
 Next instruction address: 0x1ffad1
 ```
 
 See what comes at the next instruction address:
 ```
-mundus@localhost:~/flashrom$ objdump -D -b binary -m i386 -M i8086,suffix --start-address=0x1ffad1 test2 | head -20
+user@localhost:~/flashrom$ objdump -D -b binary -m i386 -M i8086,suffix --start-address=0x1ffad1 bios_dump | head -20
 
-test2:     file format binary
+bios_dump:     file format binary
 
 
 Disassembly of section .data:
