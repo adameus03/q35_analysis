@@ -127,7 +127,7 @@ Here's what we know so far:
 1ffad3:   8b fa                   movw.s %dx,%di
 1ffad5:   66 b8 f0 f8 00 80       movl   $0x8000f8f0,%eax
 1ffadb:   ba f8 0c                movw   $0xcf8,%dx
-1ffade:   66 ef                   outl   %eax,(%dx) # enables the configuration space for D31:F0 (function 0) using the north bridge. Precisely we are targeting the RCBA register of the north bridge
+1ffade:   66 ef                   outl   %eax,(%dx) # enables the configuration space for D31:F0 (function 0) using the north bridge. Precisely we are targeting the RCBA register of the south bridge
 1ffae0:   83 c2 04                addw   $0x4,%dx
 1ffae3:   66 ed                   inl    (%dx),%eax # obtain a configuration data window for the RCBA register 
 1ffae5:   66 8b d8                movl.s %eax,%ebx # save the CDW for later
