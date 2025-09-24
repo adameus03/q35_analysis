@@ -184,4 +184,7 @@ What happens next? We'll analyse the further instructions as much as we can with
 1ffb30:	ea 5b e0 00 f0       	ljmpw  $0xf000,$0xe05b # Long jump, who knows where?
 ```
 
-So we've got to a clear milestone, the `ljmpw  $0xf000,$0xe05b` long jump instruction which jumps to the physical address 0xfe05b. What will we find there? 
+So we've got to a clear milestone, the `ljmpw  $0xf000,$0xe05b` long jump instruction which jumps to the physical address 0xfe05b. What will we find there?
+
+The further analysis can be viewed in this SVG diagram (WIP):
+![Diagram](./award_bios_analysis.svg) 
